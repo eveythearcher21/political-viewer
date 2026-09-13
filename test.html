@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic API Election Map Dashboard</title>
+    <!-- MapLibre Map Engine Libraries -->
+    <link href="https://unpkg.com" rel="stylesheet" />
+    <style>
+        body {
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex; height: 100vh;
+            background-color: #0b0b0e; color: #f1f5f9;
+            overflow: hidden;
+        }
+        #sidebar {
+            width: 320px; background: #121217;
+            padding: 24px; border-right: 1px solid #23232e;
+            display: flex; flex-direction: column; gap: 16px; z-index: 10;
+        }
+        input, button {
+            background: #202029; color: #fff;
+            border: 1px solid #323242; padding: 12px;
+            border-radius: 8px; font-size: 0.95rem; width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background: #2563eb; border: none; font-weight: bold; cursor: pointer;
+        }
+        button:hover { background: #3b82f6; }
+        #map { flex-grow: 1; height: 100%; }
+        #status { font-size: 0.85rem; color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Search Panel -->
+    <div id="sidebar">
+        <h2>🔍 Live Boundary Loader</h2>
+        <p style="font-size:0.85rem; color:#94a3b8; margin:0;">Type a municipality or state name to pull its official layout parameters live from global repositories into this single page.</p>
+        
+        <input type="text" id="target-search" value="Lancaster County, PA" placeholder="e.g., Lancaster County, PA">
+        <button onclick="fetchLiveBoundary()">Load Region From Web</button>
+        
+        <div id="status">Status: Ready</div>
+    </div>
+
+    <!-- Map Elements -->
+    <div id="map"></div>
+
+    <script src="https://unpkg.com"></script>
+    <script>
+        // Initialize the base dark map framework
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://cartocdn.com',
+            center: [-76.30, 40.04], 
+            zoom: 9
+        });
+
+        map.on('load', () => {
+            // Register an empty GeoJSON framework layer we will inject API data into
+            map.addSource('dynamic-api-source', {
+                type: 'geojson',
+                data: { "type": "FeatureCollection", "features": [] }
+            });
+
+            map.addLayer({
+                id: 'dynamic-api-layer',
+                type: 'fill',
+                source: 'dynamic-api-source',
+                paint: {
+                    'fill-color': '#2563eb',
+                    'fill-opacity': 0.6,
+                    'fill-outline-color': '#ffffff'
+                }
+            });
+        });
+
+        /**
+         * THE LIVE GEOSPATIAL API CONNECTOR
+         * Connects directly to the open Nominatim Location OS API to fetch 
+         * high-resolution geometric polygons for counties, states, or cities on the fly.
+         */
+        async function fetchLiveBoundary() {
+            const query = document.getElementById('target-search').value;
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerText = "Status: Fetching global map lines...";
+
+            try {
+                // Request geographic polygon boundary records for the specific typed location
+                const apiUrl = `https://openstreetmap.org{encodeURIComponent(query)}&format=geojson&polygon_geojson=1&limit=1`;
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                if (data && data.features && data.features.length > 0) {
+                    statusDiv.innerText = "Status: Rendering boundaries seamlessly!";
+                    
+                    // Inject the live web data directly into the MapLibre layer source
+                    map.getSource('dynamic-api-source').setData(data);
+                    
+                    // Automatically pan the map screen precisely to the newly loaded shape coordinates
+                    const coordinates = data.features[0].geometry.coordinates[0];
+                    // Handles variation in nested array geometry formats smoothly
+                    const targetCoord = Array.isArray(coordinates[0]) ? coordinates[0] : coordinates;
+                    map.flyTo({ center: targetCoord, zoom: 9.5 });
+                } else {
+                    statusDiv.innerText = "Status: Boundary location not found.";
+                }
+            } catch (error) {
+                statusDiv.innerText = "Status: Error loading from server.";
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
