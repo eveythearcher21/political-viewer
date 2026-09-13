@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High-Res US Election Map Workbench</title>
+    <title>Detailed Interactive US Map Dashboard</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -34,30 +34,25 @@
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
             position: relative;
         }
-
-        /* SVG layer wrapper styles */
         svg {
             width: 100%;
             height: auto;
-            max-height: 600px;
         }
-
-        /* Styling applied dynamically to high-resolution geographic vector paths */
-        path {
+        .state-path {
             fill: #475569;
             stroke: #1e293b;
             stroke-width: 1px;
             cursor: pointer;
-            transition: fill 0.1s ease, stroke 0.1s ease;
+            transition: fill 0.1s ease;
         }
-        path:hover {
+        .state-path:hover {
             fill: #f59e0b !important;
             stroke: #ffffff;
             stroke-width: 1.5px;
         }
-
         .tooltip {
             position: absolute;
             padding: 8px 12px;
@@ -71,7 +66,6 @@
             z-index: 100;
             box-shadow: 0 4px 10px rgba(0,0,0,0.4);
         }
-        
         .instructions {
             text-align: center;
             margin-top: 15px;
@@ -79,90 +73,74 @@
             font-size: 0.85rem;
         }
     </style>
+    <!-- Import the localized coordinate database we created -->
+    <script src="states-data.js"></script>
 </head>
 <body>
 
     <header>
-        <h1>US Election Map Canvas</h1>
-        <p>High-Resolution Public Map Configuration • Single-File Implementation</p>
+        <h1>US Election Map Workbench</h1>
+        <p>High-Resolution Isolated Framework Bundle</p>
     </header>
 
     <div id="map-container">
         <div id="tooltip" class="tooltip"></div>
         
-        <!-- Target container element where the detailed geographic SVG is injected -->
-        <div id="svg-injection-point"></div>
+        <!-- Interactive target graphic frame viewport layout -->
+        <svg id="us-canvas" viewBox="0 0 959 593"></svg>
         
         <div class="instructions">
-            🖱️ Click any state to change alignment: Gray (Neutral) → Blue (Dem) → Red (Rep)
+            鼠标 🖱️ Click any state to shift color alignments: Gray → Blue → Red
         </div>
     </div>
 
 <script>
+    const canvas = document.getElementById('us-canvas');
     const tooltip = document.getElementById('tooltip');
     const container = document.getElementById('map-container');
-    const injectionPoint = document.getElementById('svg-injection-point');
 
-    // High-resolution, official blank US Albers SVG vector base (Free public asset cloud)
-    const officialSvgUrl = "https://githubusercontent.com";
+    // Dynamically iterate through the local coordinate database asset matrix strings
+    Object.keys(US_MAP_GEOMETRY).forEach(stateId => {
+        const pathData = US_MAP_GEOMETRY[stateId];
+        const stateName = US_STATE_NAMES[stateId] || "US Region";
 
-    // Safely pull the detailed map data via background network streaming
-    fetch(officialSvgUrl)
-        .then(response => {
-            if (!response.ok) throw new Error("Network network layer down");
-            return response.text();
-        })
-        .then(svgData => {
-            // Inject the detailed raw shapes cleanly into our viewer panel 
-            injectionPoint.innerHTML = svgData;
-            
-            // Query all path layers inside the newly added SVG file
-            const paths = injectionPoint.querySelectorAll('path');
-            
-            paths.forEach(path => {
-                // Read identifying tags inside the asset source code (id or class attributes)
-                const stateName = path.getAttribute('name') || path.getAttribute('id') || "US Region";
-                
-                // Establish background neutral color states safely
-                path.style.fill = "#475569";
-                path.style.stroke = "#1e293b";
+        // Construct individual interactive vector shapes natively into the viewport layer
+        const pathEl = document.createElementNS("http://w3.org", "path");
+        pathEl.setAttribute("d", pathData);
+        pathEl.setAttribute("class", "state-path");
+        pathEl.setAttribute("id", stateId);
 
-                // 1. Tooltip Hover Interfaces
-                path.addEventListener('mouseover', () => {
-                    tooltip.style.opacity = '1';
-                    tooltip.innerHTML = `<strong>${stateName}</strong>`;
-                });
-
-                path.addEventListener('mousemove', (e) => {
-                    const rect = container.getBoundingClientRect();
-                    tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
-                    tooltip.style.top = (e.clientY - rect.top - 15) + 'px';
-                });
-
-                path.addEventListener('mouseleave', () => {
-                    tooltip.style.opacity = '0';
-                });
-
-                // 2. Interactive Click Color Flipping Loop Mechanics
-                path.addEventListener('click', () => {
-                    const currentColor = path.style.fill;
-                    
-                    if (currentColor === 'rgb(71, 85, 105)' || currentColor === '#475569') {
-                        path.style.fill = '#3b82f6'; // Dem Blue
-                    } else if (currentColor === 'rgb(59, 130, 246)' || currentColor === '#3b82f6') {
-                        path.style.fill = '#ef4444'; // Rep Red
-                    } else {
-                        path.style.fill = '#475569'; // Reset Gray
-                    }
-                });
-            });
-        })
-        .catch(err => {
-            console.error("Layout initialization fault error logic details:", err);
-            injectionPoint.innerHTML = `<div style="text-align:center; padding:40px; color:#ef4444;">
-                ⚠️ Critical Layout Initialization Error. Please check repository file connections.
-            </div>`;
+        // Tooltip listeners
+        pathEl.addEventListener('mouseover', () => {
+            tooltip.style.opacity = '1';
+            tooltip.innerHTML = `<strong>${stateName}</strong>`;
         });
+
+        pathEl.addEventListener('mousemove', (e) => {
+            const rect = container.getBoundingClientRect();
+            tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+            tooltip.style.top = (e.clientY - rect.top - 15) + 'px';
+        });
+
+        pathEl.addEventListener('mouseleave', () => {
+            tooltip.style.opacity = '0';
+        });
+
+        // Click handler toggles selection colors 
+        pathEl.addEventListener('click', () => {
+            const currentFill = window.getComputedStyle(pathEl).fill;
+            
+            if (currentFill === 'rgb(71, 85, 105)') { 
+                pathEl.style.fill = '#3b82f6'; // Dem Blue
+            } else if (currentFill === 'rgb(59, 130, 246)') {
+                pathEl.style.fill = '#ef4444'; // Rep Red
+            } else {
+                pathEl.style.fill = '#475569'; // Reset Gray
+            }
+        });
+
+        canvas.appendChild(pathEl);
+    });
 </script>
 
 </body>
