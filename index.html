@@ -3,116 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic API Election Map Dashboard</title>
-    <!-- MapLibre Map Engine Libraries -->
-    <link href="https://unpkg.com" rel="stylesheet" />
+    <title>Interactive US County Map</title>
+    <!-- Load jQuery and the pre-bundled US County map script -->
+    <script src="https://jquery.com"></script>
+    <script src="https://jsdelivr.net"></script>
     <style>
         body {
-            margin: 0; padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            display: flex; height: 100vh;
-            background-color: #0b0b0e; color: #f1f5f9;
-            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            margin: 0;
+            background-color: #f3f4f6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        #sidebar {
-            width: 320px; background: #121217;
-            padding: 24px; border-right: 1px solid #23232e;
-            display: flex; flex-direction: column; gap: 16px; z-index: 10;
+        header {
+            width: 100%;
+            padding: 20px;
+            background: #ffffff;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        input, button {
-            background: #202029; color: #fff;
-            border: 1px solid #323242; padding: 12px;
-            border-radius: 8px; font-size: 0.95rem; width: 100%;
-            box-sizing: border-box;
+        h1 { margin: 0 0 5px 0; font-size: 1.6rem; color: #111827; }
+        p { margin: 0; color: #6b7280; font-size: 0.9rem; }
+        #map-wrapper {
+            width: 100%;
+            max-width: 960px;
+            height: 600px;
+            margin: 30px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            position: relative;
         }
-        button {
-            background: #2563eb; border: none; font-weight: bold; cursor: pointer;
-        }
-        button:hover { background: #3b82f6; }
-        #map { flex-grow: 1; height: 100%; }
-        #status { font-size: 0.85rem; color: #94a3b8; }
     </style>
 </head>
 <body>
 
-    <!-- Sidebar Search Panel -->
-    <div id="sidebar">
-        <h2>🔍 Live Boundary Loader</h2>
-        <p style="font-size:0.85rem; color:#94a3b8; margin:0;">Type a municipality or state name to pull its official layout parameters live from global repositories into this single page.</p>
-        
-        <input type="text" id="target-search" value="Lancaster County, PA" placeholder="e.g., Lancaster County, PA">
-        <button onclick="fetchLiveBoundary()">Load Region From Web</button>
-        
-        <div id="status">Status: Ready</div>
-    </div>
+    <header>
+        <h1>Interactive US County Map</h1>
+        <p>Standalone single-file solution. Fully compatible with GitHub Pages.</p>
+    </header>
 
-    <!-- Map Elements -->
-    <div id="map"></div>
+    <div id="map-wrapper"></div>
 
-    <script src="https://unpkg.com"></script>
-    <script>
-        // Initialize the base dark map framework
-        const map = new maplibregl.Map({
-            container: 'map',
-            style: 'https://cartocdn.com',
-            center: [-76.30, 40.04], 
-            zoom: 9
-        });
-
-        map.on('load', () => {
-            // Register an empty GeoJSON framework layer we will inject API data into
-            map.addSource('dynamic-api-source', {
-                type: 'geojson',
-                data: { "type": "FeatureCollection", "features": [] }
-            });
-
-            map.addLayer({
-                id: 'dynamic-api-layer',
-                type: 'fill',
-                source: 'dynamic-api-source',
-                paint: {
-                    'fill-color': '#2563eb',
-                    'fill-opacity': 0.6,
-                    'fill-outline-color': '#ffffff'
-                }
-            });
-        });
-
-        /**
-         * THE LIVE GEOSPATIAL API CONNECTOR
-         * Connects directly to the open Nominatim Location OS API to fetch 
-         * high-resolution geometric polygons for counties, states, or cities on the fly.
-         */
-        async function fetchLiveBoundary() {
-            const query = document.getElementById('target-search').value;
-            const statusDiv = document.getElementById('status');
-            statusDiv.innerText = "Status: Fetching global map lines...";
-
-            try {
-                // Request geographic polygon boundary records for the specific typed location
-                const apiUrl = `https://openstreetmap.org{encodeURIComponent(query)}&format=geojson&polygon_geojson=1&limit=1`;
-                const response = await fetch(apiUrl);
-                const data = await response.json();
-
-                if (data && data.features && data.features.length > 0) {
-                    statusDiv.innerText = "Status: Rendering boundaries seamlessly!";
-                    
-                    // Inject the live web data directly into the MapLibre layer source
-                    map.getSource('dynamic-api-source').setData(data);
-                    
-                    // Automatically pan the map screen precisely to the newly loaded shape coordinates
-                    const coordinates = data.features[0].geometry.coordinates[0];
-                    // Handles variation in nested array geometry formats smoothly
-                    const targetCoord = Array.isArray(coordinates[0]) ? coordinates[0] : coordinates;
-                    map.flyTo({ center: targetCoord, zoom: 9.5 });
-                } else {
-                    statusDiv.innerText = "Status: Boundary location not found.";
-                }
-            } catch (error) {
-                statusDiv.innerText = "Status: Error loading from server.";
-                console.error(error);
+<script>
+    // Generate mock election data for US Counties (FIPS codes)
+    // In a final version, this object will store real data metrics
+    const countyData = {};
+    
+    // Initialize the self-contained map inside our wrapper division
+    const map = new Datamap({
+        element: document.getElementById('map-wrapper'),
+        scope: 'counties', // Tells the script to bundle and render county lines
+        setProjection: function(element) {
+            const projection = d3.geo.albersUsa()
+                .scale(1200)
+                .translate([element.offsetWidth / 2, element.offsetHeight / 2]);
+            const path = d3.geo.path().projection(projection);
+            return {path: path, projection: projection};
+        },
+        fills: {
+            defaultFill: '#e5e7eb',
+            Democrat: '#1d4ed8',
+            Republican: '#b91c1c',
+            Competitive: '#9ca3af'
+        },
+        geographyConfig: {
+            dataUrl: null, // Forces the script to use its internal bundled shapes
+            borderColor: '#ffffff',
+            borderWidth: 0.3,
+            highlightFillColor: '#f59e0b',
+            highlightBorderColor: '#ffffff',
+            highlightBorderWidth: 1,
+            popupTemplate: function(geo, data) {
+                // Generates the hover card interface automatically
+                const party = data ? data.party : 'Uncolored';
+                return `<div style="background:#1f2937; color:#fff; padding:8px 12px; border-radius:4px; font-size:12px;">
+                            <strong>${geo.properties.name} County</strong><br/>
+                            Status: ${party}
+                        </div>`;
             }
         }
-    </script>
+    });
+
+    // Clean up map presentation sizing rules on window load
+    window.addEventListener('resize', function() {
+        map.resize();
+    });
+</script>
+
 </body>
 </html>
